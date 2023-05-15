@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: database
+  serviceName: mongodb-test
+  template:
+    metadata:
+      labels:
+        app: database
+        selector: mongodb-test
+    spec:
+      containers:
+      - env:
+        - name: MONGO_INITDB_ROOT_USERNAME_FILE
+          value: /etc/k8-test/admin/MONGO_ROOT_USERNAME
+        - name: MONGO_INITDB_ROOT_PASSWORD_FILE
+          value: /etc/k8-test/admin/MONGO_ROOT_PASSWORD
+        image: mongo:4.0.8
+        name: mongodb-test
+        volumeMounts:
+        - mountPath: /etc/k8-test
+          name: k8-test
+          readOnly: true
+        - mountPath: /docker-entrypoint-initdb.d
+          name: mongodb-scripts
+          readOnly: true
+        - mountPath: /config
+          name: mongodb-configmap
+          readOnly: true
+        - mountPath: /data/db
+          name: mongodb-data
+      nodeSelector:
+        size: large
+      volumes:
+      - name: k8-test
+        secret:
+          items:
+          - key: MONGO_ROOT_USERNAME
+            mode: 292
+            path: admin/MONGO_ROOT_USERNAME
+          - key: MONGO_ROOT_PASSWORD
+            mode: 292
+            path: admin/MONGO_ROOT_PASSWORD
+          - key: MONGO_USERNAME
+            mode: 292
+            path: MONGO_USERNAME
+          - key: MONGO_PASSWORD
+            mode: 292
+            path: MONGO_PASSWORD
+          - key: MONGO_USERS_LIST
+            mode: 292
+            path: MONGO_USERS_LIST
+          secretName: mongodb-secret
+      - configMap:
+          items:
+          - key: ensure-users.js
+            path: ensure-users.js
+          name: mongodb-configmap
+        name: mongodb-scripts
+      - configMap:
+          items:
+          - key: mongo.conf
+            path: mongo.conf
+          name: mongodb-configmap
+        name: mongodb-configmap
+      - name: mongodb-data
+        persistentVolumeClaim:
+          claimName: mongodb-pvc
